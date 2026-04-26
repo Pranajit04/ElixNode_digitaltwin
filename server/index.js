@@ -52,28 +52,34 @@ let datasetError = null;
 let readingCount = 0;
 let anomalyCount = 0;
 
-function parseCsvFile(filePath) {
-  return new Promise((resolve, reject) => {
-    if (!fs.existsSync(filePath)) {
-      reject(new Error(`CSV file not found: ${filePath}`));
-      return;
-    }
+function loadRows() {
+  const csvPath = path.join(__dirname, 'data', 'scada_data.csv');
+  if (!fs.existsSync(csvPath)) {
+    console.warn('CSV not found — using demo data');
+    return generateDemoData();
+  }
+  const csvText = fs.readFileSync(csvPath, 'utf8');
+  return parse(csvText, { columns: true, skip_empty_lines: true, trim: true });
+}
 
-    const parsedRows = [];
-    fs.createReadStream(filePath)
-      .pipe(
-        parse({
-          columns: true,
-          skip_empty_lines: true,
-          trim: true
-        })
-      )
-      .on("data", (row) => {
-        parsedRows.push(row);
-      })
-      .on("end", () => resolve(parsedRows))
-      .on("error", reject);
-  });
+function generateDemoData() {
+  const rows = [];
+  for (let i = 0; i < 500; i++) {
+    rows.push({
+      timestamp: new Date(Date.now() - i * 2000).toISOString(),
+      P1_FT_321: (60 + Math.random() * 20 + (i % 50 === 0 ? 80 : 0)).toFixed(2),
+      P1_LT_301: (50 + Math.random() * 15 + (i % 70 === 0 ? 40 : 0)).toFixed(2),
+      P1_PIT_01: (5 + Math.random() * 2).toFixed(2),
+      P2_FT_321: (55 + Math.random() * 10).toFixed(2),
+      P2_LT_321: (45 + Math.random() * 20).toFixed(2),
+      P2_FCV01D: (0.5 + Math.random() * 0.3).toFixed(3),
+      P2_FCV02D: (0.4 + Math.random() * 0.3).toFixed(3),
+      P3_LIT_01: (35 + Math.random() * 25).toFixed(2),
+      P3_FIT_01: (20 + Math.random() * 10).toFixed(2),
+      ATT_FLAGS: i % 50 === 0 ? '1' : i % 30 === 0 ? '2' : '0'
+    });
+  }
+  return rows;
 }
 
 function getRollingAverage(column, value) {
@@ -314,14 +320,14 @@ wss.on("connection", (socket) => {
 
 async function start() {
   try {
-    rows = await parseCsvFile(CSV_PATH);
+    rows = loadRows();
     datasetLoaded = true;
     datasetError = null;
-    console.log(`Loaded ${rows.length} rows from ${path.basename(CSV_PATH)}`);
+    console.log(`Loaded ${rows.length} rows from SCADA data`);
   } catch (error) {
     datasetLoaded = false;
     datasetError = error.message;
-    console.error("Failed to load CSV:", error.message);
+    console.error("Failed to load data:", error.message);
   }
 
   app.listen(API_PORT, async () => {
