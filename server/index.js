@@ -77,13 +77,25 @@ app.post('/api/users/register', async (req, res) => {
 
 app.post('/api/users/login', async (req, res) => {
   try {
-    const user = await db.findUserByEmail(req.body.email);
-    if (!user || user.password_hash !== req.body.passwordHash)
+    const { email, passwordHash } = req.body;
+    
+    if (!email || !passwordHash) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+
+    const user = await db.findUserByEmail(String(email));
+    
+    if (!user || user.password_hash !== passwordHash) {
       return res.status(401).json({ error: 'Invalid credentials' });
-    await db.updateLastLogin(req.body.email);
+    }
+
+    await db.updateLastLogin(String(email));
     const { password_hash, ...safe } = user;
     res.json(safe);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error('Login error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/stats', async (req, res) => {

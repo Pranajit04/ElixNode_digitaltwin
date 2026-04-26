@@ -30,7 +30,10 @@ async function createUser(data) {
 }
 
 async function findUserByEmail(email) {
-  const res = await pool.query(`SELECT * FROM users WHERE email = $1 LIMIT 1`, [email]);
+  const res = await pool.query(
+    `SELECT * FROM users WHERE email = $1 LIMIT 1`,
+    [String(email)]  // force string type
+  );
   return res.rows[0] || null;
 }
 
