@@ -7,7 +7,14 @@ const { WebSocketServer } = require('ws');
 const db = require('./db');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://elix-node-digitaltwin.vercel.app',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(express.json());
 
 // ── Generate demo SCADA data ──────────────────────
