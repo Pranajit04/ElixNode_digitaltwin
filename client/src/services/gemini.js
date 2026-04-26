@@ -1,5 +1,5 @@
 const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent";
 const KEY = import.meta.env.VITE_GEMINI_KEY;
 let lastCallTime = 0;
 const MIN_INTERVAL_MS = 10000;
