@@ -269,54 +269,8 @@ app.get("/api/stats", async (req, res) => {
   }
 });
 
-const wss = new WebSocketServer({ port: WS_PORT });
-
-wss.on("connection", (socket) => {
-  if (!datasetLoaded) {
-    socket.send(
-      JSON.stringify({
-        type: "info",
-        message: datasetError ? `Dataset error: ${datasetError}` : "Dataset is still loading"
-      })
-    );
-  }
-
-  let index = 0;
-  const interval = setInterval(async () => {
-    if (!rows.length) {
-      return;
-    }
-
-    const row = rows[index % rows.length];
-    index += 1;
-    readingCount += 1;
-
-    const message = mapRowToMessage(row);
-    if (message.isAnomaly) {
-      anomalyCount += 1;
-    }
-
-    socket.send(JSON.stringify(message));
-
-    if (readingCount % 10 === 0) {
-      try {
-        await persistReadingSnapshot(message);
-      } catch (error) {
-        console.error("Failed to persist reading snapshot:", error.message);
-      }
-    }
-
-    if (message.isAnomaly) {
-      try {
-        await persistAlertIfNeeded(message);
-      } catch (error) {
-        console.error("Failed to persist alert:", error.message);
-      }
-    }
-  }, REPLAY_INTERVAL_MS);
-
-  socket.on("close", () => clearInterval(interval));
-});
+let server; // Will be set in start()
+let wss;
 
 async function start() {
   try {
@@ -330,16 +284,35 @@ async function start() {
     console.error("Failed to load data:", error.message);
   }
 
-  app.listen(API_PORT, async () => {
-    console.log(`API server listening on http://localhost:${API_PORT}`);
+  const PORT = process.env.PORT || 3001;
+  server = app.listen(PORT, async () => {
+    console.log(`🚀 Server running on port ${PORT}`);
     try {
       await db.testConnection();
+      console.log('✅ DB connected');
     } catch (error) {
       console.error("Database connection failed:", error.message);
     }
   });
 
-  console.log(`WebSocket server listening on ws://localhost:${WS_PORT}`);
+  wss = new WebSocketServer({ server });
+
+  wss.on('connection', (ws) => {
+    console.log('Client connected');
+    let i = 0;
+    const wsRows = loadRows();
+    
+    const interval = setInterval(() => {
+      if (!wsRows.length) return;
+      if (i >= wsRows.length) i = 0;
+      ws.send(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        ...wsRows[i++],
+      }));
+    }, 2000);
+
+    ws.on('close', () => clearInterval(interval));
+  });
 }
 
 start();
